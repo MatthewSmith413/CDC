@@ -13,6 +13,8 @@ A set of modules for clock domain crossing on FPGAs
       - Faster TX
       - Faster RX
     - Equal frequencies
+      - with skew
+      - with jitter
   - Must attempt to send the following data:
     - 0xdeadbeef
     - 0xcoffee
