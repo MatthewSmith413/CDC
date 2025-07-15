@@ -2,7 +2,7 @@ module CDCtesting(
 	input reset, TXData, TXClk, RXClk,
 	output RXData, TXReady, RXReady
 );
-	// use this line to connect a CDC module to the 
+	// use this line to connect a CDC module to the testbench
 	FIFO cdcmodule(reset, TXData, TXClk, RXClk, RXData, TXReady, RXReady);
 endmodule
 
