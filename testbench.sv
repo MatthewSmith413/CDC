@@ -1,13 +1,13 @@
 module testbench();
-	logic runTest;
-	logic [63:0] bitCtr;
+	logic runTest, reset;
+	logic [63:0] TXbitCtr, RXbitCtr;
 	logic [1:0] numberIndex;
-	logic TXData, TXClk, RXClk, RXData;
-	logic [299:0] received;
+	logic TXData, TXClk, RXClk, RXData, TXReady, RXReady;
+	logic [299:0] received, receiveBitMask;
 	logic [2:0] TXClkMode, RXClkMode;
 	logic slowclk, fastclk, medclk, fastskew, fastjitter;
 	
-	CDCtesting DUT(TXData, TXClk, RXClk, RXData);
+	CDCtesting DUT(reset, TXData, TXClk, RXClk, RXData, TXReady, RXReady);
 	
 	initial begin
 		
@@ -129,39 +129,53 @@ module testbench();
 	// begin each test when runTest turns low
 	always @(posedge runTest) begin
 		$display("sending first word: 0xdeadbeef");
-		received = 300'h0;
-		bitCtr = 64'h0;
+		reset = 1'b1;
+		#5 reset = 1'b0;
 		numberIndex = 2'h0;
-		wait (bitCtr == 64'h020);
+		wait (RXbitCtr == 64'h021);
 		$display("received: 0x%0h", received);
+		if(32'hdeadbeef ^ received) $display("failed");
+		else $display("passed");
 		$display("sending second word: 0xc0ffee");
-		received = 300'h0;
-		bitCtr = 64'h0;
+		reset = 1'b1;
+		#5 reset = 1'b0;
 		numberIndex = 2'h1;
-		wait (bitCtr == 64'h018);
+		wait (RXbitCtr == 64'h019);
 		$display("received: 0x%0h", received);
+		if(24'hc0ffee ^ received) $display("failed");
+		else $display("passed");
 		$display("sending third word: 0x31415926535897932384626433832795028841971693993751058209749445923");
-		received = 300'h0;
-		bitCtr = 64'h0;
+		reset = 1'b1;
+		#5 reset = 1'b0;
 		numberIndex = 2'h2;
-		wait (bitCtr == 64'h0104);
+		wait (RXbitCtr == 64'h0105);
 		$display("received: 0x%0h", received);
+		if(260'h31415926535897932384626433832795028841971693993751058209749445923 ^ received) $display("failed");
+		else $display("passed");
 		runTest = 1'b0;
 	end
 	
-	always @(posedge TXClk) begin
-		bitCtr = bitCtr+1;
+	always @(posedge TXClk or posedge reset) begin
+		TXbitCtr <=	reset?0 :
+						TXReady?TXbitCtr+1 :
+						TXbitCtr;
 	end
-	always @(posedge RXClk) begin
-		received = {received[298:0], RXData};
+	always @(posedge RXClk or posedge reset) begin
+		RXbitCtr =	reset?0 :
+						RXReady?RXbitCtr+1 :
+						RXbitCtr;
+		received <=	reset?0 :
+						(received & ~receiveBitMask) | (RXData?receiveBitMask:0);
 	end
 	
 	always_comb begin
 		case(numberIndex)
-			2'h0: TXData = (32'hdeadbeef >> bitCtr);
-			2'h1: TXData = (24'hc0ffee >> bitCtr);
-			2'h2: TXData = (260'h31415926535897932384626433832795028841971693993751058209749445923 >> bitCtr);
+			2'h0: TXData = (32'hdeadbeef >> TXbitCtr);
+			2'h1: TXData = (24'hc0ffee >> TXbitCtr);
+			2'h2: TXData = (260'h31415926535897932384626433832795028841971693993751058209749445923 >> TXbitCtr);
 			default: TXData = 1'b0;
 		endcase
 	end
+	
+	assign receiveBitMask = 1 << RXbitCtr;
 endmodule
